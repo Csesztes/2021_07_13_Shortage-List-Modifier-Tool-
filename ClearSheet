@@ -1,0 +1,16 @@
+Option Explicit
+
+Sub ClearSheet()
+
+Dim asnwer As VbMsgBoxResult
+asnwer = MsgBox("Biztosan törölni akarja a tartomány?", vbYesNo + vbQuestion)
+    If asnwer = vbYes Then
+        ShMain2.UsedRange.Clear
+    End If
+End Sub
+
+Sub Quit_program()
+
+    Application.Quit
+    
+End Sub
