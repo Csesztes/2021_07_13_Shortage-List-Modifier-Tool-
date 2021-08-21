@@ -1,0 +1,300 @@
+Option Explicit
+
+Sub Import_Atlas()
+
+With Application
+    .ScreenUpdating = False
+    .DisplayAlerts = False
+End With
+
+On Error GoTo leave
+MsgBox "Válaszd ki a Daily Shortage reportot.", vbInformation '-------'ATLAS riport másolás formázás
+
+
+Dim NewlyWB As Workbook: Set NewlyWB = Workbooks.Add: NewlyWB.SaveAs "K:\Logistics\daily shortage\2021\Shortage_report_" & Date + 8 & "-ig" & ".xlsx"
+'Dim NewlyWB As Workbook: Set NewlyWB = Workbooks.Add: NewlyWB.SaveAs "C:\Users\cscsontos\Desktop\Shortage_report_" & Date + 8 & "-ig" & ".xls", FileFormat:=xlExcel8
+Dim ShMain As Worksheet: Set ShMain = NewlyWB.Sheets(1)
+
+With Application.FileDialog(msoFileDialogFilePicker)
+    .AllowMultiSelect = False
+    .ButtonName = "Daily shortage riport kiválasztás"
+    .Title = "Daily Shortage report választó"
+    .InitialFileName = "K:\Logistics\daily shortage\2021"
+  
+
+        If .Show = -1 Then
+            ShMain.UsedRange.Clear
+            Dim FileToImport As String
+            FileToImport = .SelectedItems(1)
+
+            Dim Openbook_ATLAS As Workbook
+            Set Openbook_ATLAS = Workbooks.Open(FileToImport)
+            
+            
+            
+    
+            Openbook_ATLAS.Worksheets(1).UsedRange.Copy Destination:=ShMain.Range("B1")
+    
+                With ShMain.UsedRange
+                    .ClearFormats
+                    .Columns.AutoFit
+                    .Rows.AutoFit
+                End With
+    
+                Openbook_ATLAS.Close False
+    
+                With ShMain
+                    .Rows("2:3").Delete
+                    .Rows("3:3").Delete
+                    .Rows("4:4").Delete
+                    .Range("A4").Value = "Comment"
+                    .Range("A4:T4").Interior.Color = 13882323
+                    .Range("A1").RowHeight = 30
+                    .Columns("D:E").Delete
+                    .Columns("J:J").Delete
+                    .Columns("M:N").Delete
+                End With
+    
+        Else ' -----------Ha cancelre nyomott
+            NewlyWB.Close False
+            MsgBox "Atlas fájl Kiválasztás megszakítva.", vbInformation
+                With Application
+                    .ScreenUpdating = True
+                    .DisplayAlerts = True
+                End With
+            Exit Sub
+        End If
+End With
+
+MsgBox "Válaszd ki az előző napi hiánylistát.", vbInformation   ' --------Előző napi hiánylista választó
+    
+
+With Application.FileDialog(msoFileDialogFilePicker) '--------------Előző napi listából kommentek+színes keresése
+    .AllowMultiSelect = False
+    .ButtonName = "Előző napi hiánylista kiválasztás"
+    .Title = "Előző napi hiánylista választó"
+    .InitialFileName = "K:\Logistics\daily shortage\2021"
+    If .Show = -1 Then
+    
+        Dim FileToImport2 As String
+        FileToImport2 = .SelectedItems(1)
+    
+        Dim Openbook2 As Workbook
+        Set Openbook2 = Workbooks.Open(FileToImport2)
+        Openbook2.Sheets(1).UsedRange.AutoFilter
+        
+        Dim lastrow As Long
+        lastrow = ShMain.Range("B" & Rows.Count).End(xlUp).Row
+        
+         Call showUIFULL
+         Application.ScreenUpdating = False
+        
+        Dim i As Long, c As Long
+    
+        For i = 5 To lastrow
+            'ShMain.Range("A" & i).Value = "=IFERROR(IF(INDEX('[" & Openbook2.Name & "]Daily shortage report'!R8C:R249C[14],MATCH(RC[14],'[" & Openbook2.Name & "]Daily shortage report'!R8C[14]:R249C[14],0),1)=0,"""",INDEX('[" & Openbook2.Name & "]Daily shortage report'!R8C:R249C[14],MATCH(RC[14],'[" & Openbook2.Name & "]Daily shortage report'!R8C[14]:R249C[14],0),1)),"""")"  '-----Workorderre keres - --
+            'ShMain.Range("A" & i).Value = "=IFERROR(IF(INDEX('[" & Openbook2.Name & "]Daily shortage report'!R8C:R149C[2],MATCH(Rc[2],'[" & Openbook2.Name & "]Daily shortage report'!R8C[2]:R149C[2],0),1)=0,"""",INDEX('[" & Openbook2.Name & "]Daily shortage report'!R8C:R149C[2],MATCH(RC[2],'[" & Openbook2.Name & "]Daily shortage report'!R8C[2]:R149C[2],0),1)),"""")"  '----Cikk megnevezésre keres
+            ShMain.Range("A" & i).Value = "=IFERROR(IF(INDEX('[" & Openbook2.Name & "]Daily shortage report'!R8C:R249C[1],MATCH(RC[1],'[" & Openbook2.Name & "]Daily shortage report'!R8C[1]:R249C[1],0),1)=0,"""",INDEX('[" & Openbook2.Name & "]Daily shortage report'!R8C:R249C[1],MATCH(RC[1],'[" & Openbook2.Name & "]Daily shortage report'!R8C[1]:R249C[1],0),1)),"""")"  '-----Cikkszámra keres - --
+            ShMain.Range("A" & i).Copy
+            ShMain.Range("A" & i).PasteSpecial xlPasteValues
+        Next i
+        
+        Dim x As Long, y As Long
+        y = 5
+        
+        For c = 5 To lastrow
+            For x = 5 To lastrow
+                If ShMain.Range("B" & c).Value = Openbook2.Sheets(1).Range("B" & x).Value Then
+                        ShMain.Range("A" & c).Interior.Color = Openbook2.Sheets(1).Range("A" & x).Interior.Color
+                        ShMain.Range("B" & c).Interior.Color = Openbook2.Sheets(1).Range("B" & x).Interior.Color
+                Else
+                End If
+            Next x
+        Next c
+        
+        With ShMain
+            .Range("A4:O4").AutoFilter
+            .Range("A5", "A" & lastrow).NumberFormat = "m/d/yyyy"
+            .Range("M5", "M" & lastrow).NumberFormat = "m/d/yyyy"
+            .Range("O5", "O" & lastrow).NumberFormat = "m/d/yyyy"
+        End With
+        
+          With ShMain.Sort
+                .SetRange Range("A5", "O" & lastrow)
+                .Header = xlGuess
+                .MatchCase = False
+                .Orientation = xlTopToBottom
+                .SortMethod = xlPinYin
+                .Apply
+            End With
+        
+        
+        Openbook2.Close False
+        
+        Dim newSheet As Worksheet
+        Set newSheet = Worksheets.Add: newSheet.Name = "ABA_Paint"
+        newSheet.Move After:=ShMain
+        newSheet.UsedRange.Columns.AutoFit
+        
+        
+        
+        Dim z As Long
+        z = 2
+        
+        For i = 5 To lastrow
+            'If ShMain.Range("E" & i).Value = "ABA-Paint" Then
+            If ShMain.Range("E" & i).Value = "ABA-Paint" And ShMain.Range("F" & i).Value = "" Then
+                ShMain.Range("A" & i, "O" & i).Cut newSheet.Range("A" & z)
+                z = z + 1
+            End If
+        Next i
+        
+'        'Test code for Aba paint cut and copy to SHMAIn
+'
+'
+'        Dim ABA_Paint_Lastrow As Long, ABA_Paint_counter As Long, ShMAIN_counter As Long
+'        ABA_Paint_Lastrow = NewlyWB.Sheets("ABA_paint").UsedRange.Row
+'        ShMAIN_counter = ShMain("A" & Rows.Count).End(xlUp).Row
+'
+'        For ABA_Paint_counter = 1 To ABA_Paint_Lastrow
+'            If NewlyWB.Sheets("ABA_paint").Range("F" & ABA_Paint_counter).Value <> "" Then
+'                 NewlyWB.Sheets("ABA_paint").Range("A" & ABA_Paint_counter, "O" & ABA_Paint_counter).Cut ShMain.Range("A" & ShMAIN_counter + 1)
+'
+'            End If
+'        Next ABA_Paint_counter
+'
+'        'Test code for Aba paint cut and copy to SHMAIn - END
+        
+        With newSheet
+            .Tab.Color = vbRed
+            .UsedRange.EntireColumn.AutoFit
+             ShMain.Range("A4:O4").Copy Destination:=.Range("A1:O1")
+        End With
+        
+         Dim xi As Long, lastrow2 As Long
+         lastrow2 = ShMain.Range("B" & Rows.Count).End(xlUp).Row
+         
+         For xi = lastrow2 To 5 Step -1
+            If ShMain.Range("B" & xi).Value = "" Then
+               ShMain.Range("B" & xi).EntireRow.Delete
+            End If
+        Next xi
+        
+        With ShMain
+            .Name = "Daily shortage report"
+            .Tab.Color = vbYellow
+            .Activate
+            .UsedRange.Columns.AutoFit
+       End With
+       
+    ShMain.UsedRange.Borders(xlDiagonalDown).LineStyle = xlNone
+    ShMain.UsedRange.Borders(xlDiagonalUp).LineStyle = xlNone
+    
+    With ShMain.UsedRange.Borders(xlEdgeLeft)
+        .LineStyle = xlContinuous
+        .ColorIndex = xlAutomatic
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With ShMain.UsedRange.Borders(xlEdgeTop)
+        .LineStyle = xlContinuous
+        .ColorIndex = xlAutomatic
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With ShMain.UsedRange.Borders(xlEdgeBottom)
+        .LineStyle = xlContinuous
+        .ColorIndex = xlAutomatic
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With ShMain.UsedRange.Borders(xlEdgeRight)
+        .LineStyle = xlContinuous
+        .ColorIndex = xlAutomatic
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With ShMain.UsedRange.Borders(xlInsideVertical)
+        .LineStyle = xlContinuous
+        .ColorIndex = xlAutomatic
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With ShMain.UsedRange.Borders(xlInsideHorizontal)
+        .LineStyle = xlContinuous
+        .ColorIndex = xlAutomatic
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    
+    'New test code for setting ColumnWidth
+    
+    With ShMain
+       .Columns("A").ColumnWidth = 55
+       .Columns("B").ColumnWidth = 32
+       .Columns("C").ColumnWidth = 32
+       .Columns("D").ColumnWidth = 7
+       .Columns("E").ColumnWidth = 11
+       .Columns("F").ColumnWidth = 7
+       .Columns("G").ColumnWidth = 7
+       .Columns("H").ColumnWidth = 29
+       .Columns("I").ColumnWidth = 7
+       .Columns("J").ColumnWidth = 6
+       .Columns("K").ColumnWidth = 6
+       .Columns("L").ColumnWidth = 7
+       .Columns("M").ColumnWidth = 12
+       .Columns("N").ColumnWidth = 9
+       .Columns("O").ColumnWidth = 19
+    End With
+    
+    
+    'New test code for setting ColumnWidth - END
+        
+        ActiveWindow.DisplayGridlines = False
+    
+        NewlyWB.SaveAs "K:\Logistics\daily shortage\2021\Shortage_report_" & Date + 8 & "-ig" & ".xls", FileFormat:=xlExcel8
+        'NewlyWB.SaveAs "C:\Users\cscsontos\Desktop\Shortage_report_" & Date + 8 & "-ig" & ".xlsb"
+        Kill ("K:\Logistics\daily shortage\2021\Shortage_report_" & Date + 8 & "-ig" & ".xlsx")
+        MsgBox "Fájl mentve:" & vbNewLine & "K:\Logistics\daily shortage\2021\Shortage report - " & Date + 8 & " -ig" & ".xls" & vbNewLine & "Kérlek oszd meg a létrehozott hiánylistát!"
+        
+        
+                With Application
+                    .ScreenUpdating = True
+                    .DisplayAlerts = True
+                    '.Width = 1272
+                    '.Height = 770
+                End With
+        
+         Set NewlyWB = Nothing
+         Set ShMain = Nothing
+         
+         ThisWorkbook.Close False
+        'Application.Quit
+     
+  
+        
+    Else ' -----------Ha cancelre nyomott
+        NewlyWB.Close False
+        MsgBox "Hiánylista kiválasztás megszakítva.", vbInformation
+                With Application
+                    .ScreenUpdating = True
+                    .DisplayAlerts = True
+                End With
+        Exit Sub
+    End If
+End With
+'                With Application
+'                    .ScreenUpdating = True
+'                    .DisplayAlerts = True
+'                End With
+Exit Sub
+
+leave:
+
+    MsgBox "Hiba történt! Zárd be a progrmot és próbáld újra.", vbInformation
+    Openbook2.Close
+     With Application
+            .ScreenUpdating = True
+            .DisplayAlerts = True
+    End With
+End Sub
